@@ -52,9 +52,10 @@ type Log struct {
 	Loglevel string `json:"loglevel"`
 }
 type Sniffing struct {
-	Enabled      bool     `json:"enabled"`
-	DestOverride []string `json:"destOverride,omitempty"`
-	MetadataOnly bool     `json:"metadataOnly"`
+	Enabled         bool     `json:"enabled"`
+	DestOverride    []string `json:"destOverride,omitempty"`
+	MetadataOnly    bool     `json:"metadataOnly"`
+	DomainsExcluded []string `json:"domainsExcluded"`
 }
 type Inbound struct {
 	Port           int              `json:"port"`
@@ -149,6 +150,7 @@ type StreamSettings struct {
 	WsSettings      *WsSettings      `json:"wsSettings,omitempty"`
 	HTTPSettings    *HttpSettings    `json:"httpSettings,omitempty"`
 	GrpcSettings    *GrpcSettings    `json:"grpcSettings,omitempty"`
+	QuicSettings    *QuicSettings    `json:"quicSettings,omitempty"`
 	Sockopt         *Sockopt         `json:"sockopt,omitempty"`
 }
 type RealitySettings struct {
@@ -244,6 +246,11 @@ type HttpSettings struct {
 	Path   string   `json:"path"`
 	Host   []string `json:"host,omitempty"`
 	Method string   `json:"method,omitempty"`
+}
+type QuicSettings struct {
+	Header   KcpHeader `json:"header"`
+	Key      string    `json:"key,omitempty"`
+	Security string    `json:"security"`
 }
 type Hosts map[string][]string
 

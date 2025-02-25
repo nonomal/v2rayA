@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-leo/slicex"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/mohae/deepcopy"
 	"github.com/v2rayA/RoutingA"
@@ -1047,7 +1049,7 @@ func SetVmessInbound(vmess *coreObj.Inbound) (err error) {
 	return nil
 }
 
-func (t *Template) setInbound() error {
+func (t *Template) setInbound(setting *configure.Setting) error {
 	p := configure.GetPortsNotNil()
 	if p != nil {
 		t.Inbounds[0].Port = p.Socks5
@@ -1110,6 +1112,20 @@ func (t *Template) setInbound() error {
 				},
 				Tag: "dns-in",
 			})
+		}
+	}
+
+	// 设置域名嗅探
+	if setting.InboundSniffing != configure.InboundSniffingDisable && setting.InboundSniffing != "" {
+		domainsExcludedText := configure.GetDomainsExcluded()
+		for i := len(t.Inbounds) - 1; i >= 0; i-- {
+			if setting.InboundSniffing == configure.InboundSniffingHttpTLS {
+				t.Inbounds[i].Sniffing.DestOverride = []string{"http", "tls"}
+			} else {
+				t.Inbounds[i].Sniffing.DestOverride = []string{"http", "tls", "quic"}
+			}
+			t.Inbounds[i].Sniffing.DomainsExcluded = strings.Split(domainsExcludedText, "\n")
+			t.Inbounds[i].Sniffing.Enabled = true
 		}
 	}
 	return nil
@@ -1422,18 +1438,24 @@ func (t *Template) resolveOutbounds(
 }
 
 func (t *Template) SetAPI(serverData *ServerData) (port int, err error) {
+	// find a valid port
+	config := configure.GetPortsNotNil()
+	if config.Api.Port != 0 {
+		port = config.Api.Port
+	} else {
+		for {
+			if l, err := net.Listen("tcp4", "127.0.0.1:0"); err == nil {
+				port = l.Addr().(*net.TCPAddr).Port
+				_ = l.Close()
+				break
+			}
+			time.Sleep(30 * time.Millisecond)
+		}
+	}
 	services := []string{
 		"LoggerService",
 	}
-	// find a valid port
-	for {
-		if l, err := net.Listen("tcp4", "127.0.0.1:0"); err == nil {
-			port = l.Addr().(*net.TCPAddr).Port
-			_ = l.Close()
-			break
-		}
-		time.Sleep(30 * time.Millisecond)
-	}
+	services = slicex.Uniq(append(services, config.Api.Services...))
 	// observatory
 	if serverData != nil {
 		outbounds := t.outNames()
@@ -1576,7 +1598,7 @@ func NewTemplate(serverInfos []serverInfo, setting *configure.Setting) (t *Templ
 	t.OutboundTags = outboundTags
 
 	//set inbound ports according to the setting
-	if err = t.setInbound(); err != nil {
+	if err = t.setInbound(setting); err != nil {
 		return nil, err
 	}
 	//set DNS
@@ -1640,8 +1662,13 @@ func NewTemplate(serverInfos []serverInfo, setting *configure.Setting) (t *Templ
 	//set inbound listening address and routing
 	t.setDualStack()
 
-	//set outbound sendThrough address
-	t.setSendThrough()
+	if IsTransparentOn(t.Setting) {
+		switch t.Setting.TransparentType {
+		case configure.TransparentGvisorTun, configure.TransparentSystemTun:
+			//set outbound sendThrough address
+			t.setSendThrough()
+		}
+	}
 
 	//check if there are any duplicated tags
 	if err = t.checkDuplicatedTags(); err != nil {

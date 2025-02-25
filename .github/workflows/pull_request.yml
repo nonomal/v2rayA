@@ -11,15 +11,16 @@ jobs:
   Build_v2rayA_Web:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4.1.1
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set up Node.js
-      uses: actions/setup-node@v4.0.2
-      with:
-        node-version: lts/*
-        cache: 'yarn'
-        cache-dependency-path: gui/yarn.lock
+      shell: bash
+      run: |
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        brew install node@20
+        echo "PATH=\"$(brew --prefix)/opt/node@20/bin:$PATH\"" >> $GITHUB_ENV
+        echo "PATH=\"$(brew --prefix)/opt/node@20/bin:$PATH\"" >> ~/.bash_profile
     - name: Install Dependencies
       run: |
         sudo apt-get update -y && sudo apt-get install -y gzip
@@ -30,7 +31,7 @@ jobs:
         echo "Use tar to generate web.tar.gz..."
         tar -zcvf web.tar.gz web/
     - name: Upload Zip File to Artifacts
-      uses: actions/upload-artifact@v4.3.1
+      uses: actions/upload-artifact@v4
       with:
         path: web/*
         name: web
@@ -42,16 +43,16 @@ jobs:
           os: [ubuntu-latest, windows-latest, macos-latest]
     needs: Build_v2rayA_Web
     steps:
-    - uses: actions/checkout@v4.1.1
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Download Artifact
-      uses: actions/download-artifact@v4.1.2
+      uses: actions/download-artifact@v4
       with:
         name: web
         path: service/server/router/web
     - name: Set up Go
-      uses: actions/setup-go@v5.0.0
+      uses: actions/setup-go@v5
       with:
         cache-dependency-path: |
           service/go.mod
